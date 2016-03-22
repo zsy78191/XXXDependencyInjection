@@ -72,11 +72,11 @@ UIViewController* controller = [[UIViewController alloc] initWithParams:@{
 ```
 我们给这个VC注入了两个属性，一个是其title，一个是其View的backgroundColor属性。
 字典传入以后，我们读区`params.allKeys`进行遍历，拼装set＋参数名的selector，这里用的是NSSelectorFromString方法:
-```
+```objc
 SEL selector = NSSelectorFromString([NSString stringWithFormat:@"set%@%@:",[[obj substringToIndex:1] uppercaseString],[obj substringFromIndex:1]]);
 ```
 然后我们判断实例是否可以响应这个set方法，如果可以，则给其赋值。
-```
+```objc
         if ([self respondsToSelector:selector]) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
