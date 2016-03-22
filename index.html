@@ -1,0 +1,157 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Xxxdependencyinjection by zsy78191</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <meta name="viewport" content="width=device-width">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Xxxdependencyinjection</h1>
+        <p>Dependency injection for obj-c</p>
+
+        <p class="view"><a href="https://github.com/zsy78191/XXXDependencyInjection">View the Project on GitHub <small>zsy78191/XXXDependencyInjection</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/zsy78191/XXXDependencyInjection/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/zsy78191/XXXDependencyInjection/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/zsy78191/XXXDependencyInjection">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <p><code>依赖注入(Dependency Injection)</code>这个词，源于java，但在Cocoa框架中也是十分常见的。
+举例来说：
+<strong>UIView的初始化方法initWithFrame</strong></p>
+
+<div class="highlight highlight-source-objc"><pre>- (<span class="pl-k">id</span>)initWithFrame:(<span class="pl-c1">CGRect</span>)frame NS_DESIGNATED_INITIALIZER;</pre></div>
+
+<p>这里的frame传入值，就是所谓的<code>依赖(Dependency)</code>，这个View实例化是根据frame注入实现的。
+但这种用法有很大的局限性
+1. 我们不知道究竟依赖注入的属性有哪些
+2. 不可能无限加长方法长度来满足更多的依赖属性</p>
+
+<p>所以我们准备采用字典容器对NSObject类进行依赖注入扩展。</p>
+
+<h2>
+<a id="给nsobject类添加一个category" class="anchor" href="#%E7%BB%99nsobject%E7%B1%BB%E6%B7%BB%E5%8A%A0%E4%B8%80%E4%B8%AAcategory" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>给NSObject类添加一个Category</h2>
+
+<div class="highlight highlight-source-objc"><pre><span class="pl-k">@interface</span> <span class="pl-en">NSObject</span> (XXXDependencyInjection)
+
+- (nullable <span class="pl-k">id</span>)<span class="pl-en">initWithParams</span><span class="pl-en">:</span>(nonnull <span class="pl-c1">NSDictionary</span> *)<span class="pl-smi">params</span>;
+- (<span class="pl-k">void</span>)<span class="pl-en">injection</span><span class="pl-en">:</span>(nonnull <span class="pl-c1">NSDictionary</span>*)<span class="pl-smi">params</span>;
+
+<span class="pl-k">@end</span></pre></div>
+
+<h2>
+<a id="实现注入方法" class="anchor" href="#%E5%AE%9E%E7%8E%B0%E6%B3%A8%E5%85%A5%E6%96%B9%E6%B3%95" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>实现注入方法</h2>
+
+<div class="highlight highlight-source-objc"><pre>- (<span class="pl-k">id</span>)initWithParams:(<span class="pl-c1">NSDictionary</span> *)params
+{
+    self = [<span class="pl-v">self</span> <span class="pl-c1">init</span>];
+    <span class="pl-k">if</span> (self) {
+        [<span class="pl-v">self</span> <span class="pl-c1">injection:</span>params];
+    }
+    <span class="pl-k">return</span> self;
+}
+
+- (<span class="pl-k">void</span>)injection:(<span class="pl-c1">NSDictionary</span>*)params
+{
+    [params.allKeys <span class="pl-c1">enumerateObjectsUsingBlock:</span>^(<span class="pl-k">id</span>  _Nonnull obj, <span class="pl-k">NSUInteger</span> idx, <span class="pl-k">BOOL</span> * _Nonnull stop) {
+        <span class="pl-k">SEL</span> selector = <span class="pl-c1">NSSelectorFromString</span>([<span class="pl-c1">NSString</span> <span class="pl-c1">stringWithFormat:</span><span class="pl-s"><span class="pl-pds">@"</span>set<span class="pl-c1">%@%@</span>:<span class="pl-pds">"</span></span>,[[obj <span class="pl-c1">substringToIndex:</span><span class="pl-c1">1</span>] <span class="pl-c1">uppercaseString</span>],[obj <span class="pl-c1">substringFromIndex:</span><span class="pl-c1">1</span>]]);
+        <span class="pl-k">id</span> value = [params <span class="pl-c1">objectForKey:</span>obj];
+
+
+        <span class="pl-k">if</span> ([<span class="pl-v">self</span> <span class="pl-c1">respondsToSelector:</span>selector]) {
+#<span class="pl-k">pragma</span> clang diagnostic push
+#<span class="pl-k">pragma</span> clang diagnostic ignored "-Warc-performSelector-leaks"
+            [<span class="pl-v">self</span> <span class="pl-c1">performSelector:</span>selector <span class="pl-c1">withObject:</span>value];
+#<span class="pl-k">pragma</span> clang diagnostic pop
+        }
+        <span class="pl-k">else</span>
+        {
+            <span class="pl-k">@try</span> {
+                [<span class="pl-v">self</span> <span class="pl-c1">setValue:</span>value <span class="pl-c1">forKeyPath:</span>obj];
+            }
+            <span class="pl-k">@catch</span> (<span class="pl-c1">NSException</span> *exception) {
+                <span class="pl-c1">NSLog</span>(<span class="pl-s"><span class="pl-pds">@"</span><span class="pl-c1">%@</span><span class="pl-pds">"</span></span>,exception);
+                [exception <span class="pl-c1">raise</span>];
+            }
+            <span class="pl-k">@finally</span> {
+
+            }
+        }
+    }];
+}</pre></div>
+
+<h2>
+<a id="解释" class="anchor" href="#%E8%A7%A3%E9%87%8A" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>解释</h2>
+
+<p>我们将需要注入的属性，封装到一个字典里，例如：</p>
+
+<div class="highlight highlight-source-objc"><pre>UIViewController* controller = [[UIViewController <span class="pl-c1">alloc</span>] <span class="pl-c1">initWithParams:</span>@{
+                               <span class="pl-s"><span class="pl-pds">@"</span>title<span class="pl-pds">"</span></span>:<span class="pl-s"><span class="pl-pds">@"</span>测试<span class="pl-pds">"</span></span>,
+                               <span class="pl-s"><span class="pl-pds">@"</span>view.backgroundColor<span class="pl-pds">"</span></span>:[UIColor <span class="pl-c1">whiteColor</span>]
+                                                                              }];</pre></div>
+
+<p>我们给这个VC注入了两个属性，一个是其title，一个是其View的backgroundColor属性。
+字典传入以后，我们读区<code>params.allKeys</code>进行遍历，拼装set＋参数名的selector，这里用的是NSSelectorFromString方法:</p>
+
+<div class="highlight highlight-source-objc"><pre><span class="pl-k">SEL</span> selector = <span class="pl-c1">NSSelectorFromString</span>([<span class="pl-c1">NSString</span> <span class="pl-c1">stringWithFormat:</span><span class="pl-s"><span class="pl-pds">@"</span>set<span class="pl-c1">%@%@</span>:<span class="pl-pds">"</span></span>,[[obj <span class="pl-c1">substringToIndex:</span><span class="pl-c1">1</span>] <span class="pl-c1">uppercaseString</span>],[obj <span class="pl-c1">substringFromIndex:</span><span class="pl-c1">1</span>]]);</pre></div>
+
+<p>然后我们判断实例是否可以响应这个set方法，如果可以，则给其赋值。</p>
+
+<div class="highlight highlight-source-objc"><pre>        <span class="pl-k">if</span> ([<span class="pl-v">self</span> <span class="pl-c1">respondsToSelector:</span>selector]) {
+#<span class="pl-k">pragma</span> clang diagnostic push
+#<span class="pl-k">pragma</span> clang diagnostic ignored "-Warc-performSelector-leaks"
+            [<span class="pl-v">self</span> <span class="pl-c1">performSelector:</span>selector <span class="pl-c1">withObject:</span>value];
+#<span class="pl-k">pragma</span> clang diagnostic pop
+        }</pre></div>
+
+<p>这里的三行clang宏是为了消除编译器的内存泄漏警告，这里因为我们进行了验证，所以不会出现leak。</p>
+
+<h2>
+<a id="kvc实现跨实例赋值" class="anchor" href="#kvc%E5%AE%9E%E7%8E%B0%E8%B7%A8%E5%AE%9E%E4%BE%8B%E8%B5%8B%E5%80%BC" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>KVC实现跨实例赋值</h2>
+
+<p>我们注意到上例中还有一句给VC的View改变背景颜色</p>
+
+<div class="highlight highlight-source-objc"><pre>  <span class="pl-s"><span class="pl-pds">@"</span>view.backgroundColor<span class="pl-pds">"</span></span>:[UIColor <span class="pl-c1">whiteColor</span>]</pre></div>
+
+<p>这里就用到了KVC的点语法特性，在我们判断到实例不能响应<code>if ([self respondsToSelector:selector])</code>的时候，通过点语法，进行赋值</p>
+
+<div class="highlight highlight-source-objc"><pre><span class="pl-k">@try</span> {
+    [<span class="pl-v">self</span> <span class="pl-c1">setValue:</span>value <span class="pl-c1">forKeyPath:</span>obj];
+}
+<span class="pl-k">@catch</span> (<span class="pl-c1">NSException</span> *exception) {
+    <span class="pl-c1">NSLog</span>(<span class="pl-s"><span class="pl-pds">@"</span><span class="pl-c1">%@</span><span class="pl-pds">"</span></span>,exception);
+   [exception <span class="pl-c1">raise</span>];
+}
+<span class="pl-k">@finally</span> {
+
+}</pre></div>
+
+<p>这里添加了异常捕获，因为点语法对属性名称拼写要求是全匹配，否则抛异常，所以要注意。</p>
+
+<h2>
+<a id="优缺点" class="anchor" href="#%E4%BC%98%E7%BC%BA%E7%82%B9" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>优缺点</h2>
+
+<p>这样改造过的init方法，优点非常明显，就是绑定更加集中便捷，如果使用的是<code>storyboard</code>则可以轻松实现前后端分离。
+目前的缺点也很明显，不能告诉开发者哪些属性是必需依赖，另外还不能支持非对象属性的赋值（已经可以，改为setValueforkeyPath方法赋值），希望抛砖引玉，大家来改进这段代码。</p>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/zsy78191">zsy78191</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
+  </body>
+</html>
