@@ -13,7 +13,7 @@
 
 所以我们准备采用字典容器对NSObject类进行依赖注入扩展。
 ##给NSObject类添加一个Category
-```
+```objc
 @interface NSObject (XXXDependencyInjection)
 
 - (nullable id)initWithParams:(nonnull NSDictionary *)params;
@@ -22,7 +22,7 @@
 @end
 ```
 ##实现注入方法
-```
+```objc
 - (id)initWithParams:(NSDictionary *)params
 {
     self = [self init];
@@ -64,7 +64,7 @@
 
 ##解释
 我们将需要注入的属性，封装到一个字典里，例如：
-```
+```objc
 UIViewController* controller = [[UIViewController alloc] initWithParams:@{
                                @"title":@"测试",
                                @"view.backgroundColor":[UIColor whiteColor]
@@ -87,11 +87,11 @@ SEL selector = NSSelectorFromString([NSString stringWithFormat:@"set%@%@:",[[obj
 这里的三行clang宏是为了消除编译器的内存泄漏警告，这里因为我们进行了验证，所以不会出现leak。
 ##KVC实现跨实例赋值
 我们注意到上例中还有一句给VC的View改变背景颜色
-```
+```objc
   @"view.backgroundColor":[UIColor whiteColor]
 ```
 这里就用到了KVC的点语法特性，在我们判断到实例不能响应` if ([self respondsToSelector:selector]) `的时候，通过点语法，进行赋值
-```
+```objc
 @try {
     [self setValue:value forKeyPath:obj];
 }
@@ -106,4 +106,4 @@ SEL selector = NSSelectorFromString([NSString stringWithFormat:@"set%@%@:",[[obj
 这里添加了异常捕获，因为点语法对属性名称拼写要求是全匹配，否则抛异常，所以要注意。
 ##优缺点
 这样改造过的init方法，优点非常明显，就是绑定更加集中便捷，如果使用的是`storyboard`则可以轻松实现前后端分离。
-目前的缺点也很明显，不能告诉开发者哪些属性是必需依赖，另外还不能支持非对象属性的赋值，希望抛砖引玉，大家来改进这段代码。
+目前的缺点也很明显，不能告诉开发者哪些属性是必需依赖，另外还不能支持非对象属性的赋值（已经可以，改为setValueforkeyPath方法赋值），希望抛砖引玉，大家来改进这段代码。
